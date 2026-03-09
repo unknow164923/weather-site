@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  <meta name="apple-mobile-web-app-title" content="Météo" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/icon.png" />
+  <title>Météo</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --black: #000000;
+      --white: #ffffff;
+      --grey-1: #111111;
+      --grey-2: #1a1a1a;
+      --grey-3: #2a2a2a;
+      --grey-4: #888888;
+      --grey-5: #cccccc;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      background: var(--black);
+      color: var(--white);
+      font-family: 'DM Mono', monospace;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── NOISE OVERLAY ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 999;
+      opacity: 0.4;
+    }
+
+    /* ── PAGES ── */
+    .page {
+      display: none;
+      min-height: 100vh;
+      padding: 0;
+      animation: fadeIn 0.4s ease;
+    }
+    .page.active { display: flex; flex-direction: column; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── HOME PAGE ── */
+    #home {
+      justify-content: space-between;
+      padding: 48px 32px 40px;
+    }
+
+    .home-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .home-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(72px, 20vw, 140px);
+      line-height: 0.9;
+      letter-spacing: -2px;
+      color: var(--white);
+    }
+
+    .home-title span {
+      display: block;
+      color: var(--grey-4);
+      font-size: 0.4em;
+      letter-spacing: 4px;
+      font-family: 'DM Mono', monospace;
+      font-weight: 300;
+      margin-bottom: 4px;
+    }
+
+    .settings-btn {
+      background: none;
+      border: 1px solid var(--grey-3);
+      color: var(--grey-4);
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .settings-btn:hover { border-color: var(--white); color: var(--white); }
+
+    .home-time {
+      font-size: 13px;
+      color: var(--grey-4);
+      letter-spacing: 2px;
+      font-weight: 300;
+    }
+
+    .home-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .main-btn {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 28px 32px;
+      border: 1px solid var(--grey-3);
+      background: var(--grey-1);
+      color: var(--white);
+      cursor: pointer;
+      transition: all 0.25s;
+      text-align: left;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .main-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--white);
+      transform: translateX(-101%);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 0;
+    }
+
+    .main-btn:hover::before { transform: translateX(0); }
+    .main-btn:hover { color: var(--black); border-color: var(--white); }
+
+    .main-btn > * { position: relative; z-index: 1; }
+
+    .btn-label {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 36px;
+      letter-spacing: 1px;
+      line-height: 1;
+    }
+
+    .btn-sub {
+      font-size: 11px;
+      color: var(--grey-4);
+      letter-spacing: 2px;
+      margin-top: 4px;
+      font-weight: 300;
+      transition: color 0.25s;
+    }
+    .main-btn:hover .btn-sub { color: var(--grey-3); }
+
+    .btn-arrow {
+      font-size: 24px;
+      transition: transform 0.25s;
+    }
+    .main-btn:hover .btn-arrow { transform: translateX(4px); }
+
+    .home-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .notif-status {
+      font-size: 11px;
+      color: var(--grey-4);
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .notif-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--grey-4);
+    }
+    .notif-dot.active { background: #fff; animation: pulse 2s infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* ── CONTENT PAGES ── */
+    .content-page {
+      padding: 48px 32px 40px;
+      justify-content: flex-start;
+      gap: 40px;
+    }
+
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .back-btn {
+      background: none;
+      border: none;
+      color: var(--grey-4);
+      cursor: pointer;
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 2px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: color 0.2s;
+      padding: 0;
+    }
+    .back-btn:hover { color: var(--white); }
+
+    .page-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 52px;
+      letter-spacing: 1px;
+      line-height: 1;
+    }
+
+    /* ── MÉTÉO CONTENT ── */
+    .weather-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: var(--grey-3);
+      border: 1px solid var(--grey-3);
+    }
+
+    .weather-card {
+      background: var(--grey-1);
+      padding: 24px;
+    }
+
+    .weather-card.full { grid-column: 1 / -1; }
+
+    .card-label {
+      font-size: 10px;
+      letter-spacing: 3px;
+      color: var(--grey-4);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .card-value {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 48px;
+      line-height: 1;
+      color: var(--white);
+    }
+
+    .card-value.big { font-size: 72px; }
+    .card-sub { font-size: 12px; color: var(--grey-4); margin-top: 6px; }
+
+    .loading-text {
+      font-size: 12px;
+      color: var(--grey-4);
+      letter-spacing: 2px;
+      animation: blink 1.2s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.2; }
+    }
+
+    /* ── TENUE CONTENT ── */
+    .outfit-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      background: var(--grey-3);
+      border: 1px solid var(--grey-3);
+    }
+
+    .outfit-item {
+      background: var(--grey-1);
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .outfit-icon {
+      font-size: 28px;
+      width: 48px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+
+    .outfit-text {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 28px;
+      letter-spacing: 1px;
+    }
+
+    .outfit-note {
+      font-size: 11px;
+      color: var(--grey-4);
+      letter-spacing: 1px;
+      margin-top: 2px;
+    }
+
+    /* ── SETTINGS PAGE ── */
+    .settings-page {
+      padding: 48px 32px 40px;
+      justify-content: flex-start;
+      gap: 32px;
+    }
+
+    .settings-section {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .settings-section-title {
+      font-size: 10px;
+      letter-spacing: 4px;
+      color: var(--grey-4);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .settings-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      background: var(--grey-1);
+      border: 1px solid var(--grey-3);
+      margin-bottom: 1px;
+    }
+
+    .settings-row-label {
+      font-size: 13px;
+      letter-spacing: 1px;
+      color: var(--grey-5);
+    }
+
+    .settings-input {
+      background: none;
+      border: none;
+      border-bottom: 1px solid var(--grey-3);
+      color: var(--white);
+      font-family: 'DM Mono', monospace;
+      font-size: 13px;
+      text-align: right;
+      width: 100px;
+      padding: 4px 0;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .settings-input:focus { border-color: var(--white); }
+
+    .days-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+    }
+
+    .day-btn {
+      aspect-ratio: 1;
+      background: var(--grey-1);
+      border: 1px solid var(--grey-3);
+      color: var(--grey-4);
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s;
+      letter-spacing: 0;
+    }
+
+    .day-btn.selected {
+      background: var(--white);
+      color: var(--black);
+      border-color: var(--white);
+    }
+
+    .save-btn {
+      width: 100%;
+      padding: 20px;
+      background: var(--white);
+      color: var(--black);
+      border: none;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 24px;
+      letter-spacing: 2px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .save-btn:hover { background: var(--grey-5); }
+
+    .notif-btn {
+      width: 100%;
+      padding: 16px;
+      background: none;
+      color: var(--white);
+      border: 1px solid var(--grey-3);
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 2px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .notif-btn:hover { border-color: var(--white); }
+
+    .alert-box {
+      padding: 14px 20px;
+      background: var(--grey-2);
+      border-left: 2px solid var(--white);
+      font-size: 11px;
+      color: var(--grey-4);
+      letter-spacing: 1px;
+      line-height: 1.6;
+      display: none;
+    }
+    .alert-box.show { display: block; }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════ HOME ══ -->
+<div id="home" class="page active">
+  <div>
+    <div class="home-header">
+      <div class="home-title">
+        <span>Mons</span>
+        MÉTÉO
+      </div>
+      <button class="settings-btn" onclick="showPage('settings')" title="Réglages">⚙</button>
+    </div>
+    <div class="home-time" id="live-time">—</div>
+  </div>
+
+  <div class="home-buttons">
+    <button class="main-btn" onclick="showPage('meteo')">
+      <div>
+        <div class="btn-label">MÉTÉO DU JOUR</div>
+        <div class="btn-sub">TEMPÉRATURE · PLUIE · VENT</div>
+      </div>
+      <div class="btn-arrow">→</div>
+    </button>
+    <button class="main-btn" onclick="showPage('tenue')">
+      <div>
+        <div class="btn-label">M'HABILLER</div>
+        <div class="btn-sub">CONSEIL VESTIMENTAIRE</div>
+      </div>
+      <div class="btn-arrow">→</div>
+    </button>
+  </div>
+
+  <div class="home-footer">
+    <div class="notif-status">
+      <div class="notif-dot" id="notif-dot"></div>
+      <span id="notif-label">NOTIFICATIONS DÉSACTIVÉES</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════ MÉTÉO ══ -->
+<div id="meteo" class="page content-page">
+  <div class="page-header">
+    <button class="back-btn" onclick="showPage('home')">← RETOUR</button>
+    <div class="page-title">MÉTÉO</div>
+  </div>
+
+  <div id="meteo-content">
+    <p class="loading-text">CHARGEMENT...</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════ TENUE ══ -->
+<div id="tenue" class="page content-page">
+  <div class="page-header">
+    <button class="back-btn" onclick="showPage('home')">← RETOUR</button>
+    <div class="page-title">TENUE</div>
+  </div>
+
+  <div id="tenue-content">
+    <p class="loading-text">CHARGEMENT...</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════ RÉGLAGES ══ -->
+<div id="settings" class="page settings-page">
+  <div class="page-header">
+    <button class="back-btn" onclick="showPage('home')">← RETOUR</button>
+    <div class="page-title">RÉGLAGES</div>
+  </div>
+
+  <div class="settings-section">
+    <div class="settings-section-title">JOURS DE COURS</div>
+    <div class="days-grid">
+      <button class="day-btn selected" data-day="1">LU</button>
+      <button class="day-btn selected" data-day="2">MA</button>
+      <button class="day-btn selected" data-day="3">ME</button>
+      <button class="day-btn selected" data-day="4">JE</button>
+      <button class="day-btn selected" data-day="5">VE</button>
+      <button class="day-btn" data-day="6">SA</button>
+      <button class="day-btn" data-day="0">DI</button>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <div class="settings-section-title">HEURE DE NOTIFICATION</div>
+    <div class="settings-row">
+      <div class="settings-row-label">HEURE D'ENVOI</div>
+      <input type="time" class="settings-input" id="notif-time" value="07:00" />
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <div class="settings-section-title">NOTIFICATIONS</div>
+    <button class="notif-btn" id="notif-toggle-btn" onclick="toggleNotifications()">
+      ACTIVER LES NOTIFICATIONS
+    </button>
+    <div class="alert-box" id="ios-instructions">
+      Sur iPhone : appuie sur <strong style="color:#fff">Partager</strong> dans Safari → <strong style="color:#fff">Sur l'écran d'accueil</strong> → ouvre l'app → reviens ici et active les notifications.
+    </div>
+  </div>
+
+  <button class="save-btn" onclick="saveSettings()">SAUVEGARDER</button>
+</div>
+
+<script>
+  // ── ÉTAT ──
+  const OWM_KEY = '79516b8812c38fc18cad4964b5d099c2'; // ← remplace ici
+  const CITY = 'Mons,BE';
+
+  let settings = JSON.parse(localStorage.getItem('meteo-settings') || JSON.stringify({
+    days: [1, 2, 3, 4, 5],
+    notifTime: '07:00',
+    notifEnabled: false
+  }));
+
+  // ── NAVIGATION ──
+  function showPage(id) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    if (id === 'meteo') loadMeteo();
+    if (id === 'tenue') loadTenue();
+    if (id === 'settings') loadSettingsUI();
+    window.scrollTo(0, 0);
+  }
+
+  // ── HORLOGE ──
+  function updateTime() {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2, '0');
+    const m = String(now.getMinutes()).padStart(2, '0');
+    const days = ['DIM', 'LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM'];
+    document.getElementById('live-time').textContent = days[now.getDay()] + ' ' + h + ':' + m;
+  }
+  setInterval(updateTime, 1000);
+  updateTime();
+
+  // ── MÉTÉO ──
+  async function loadMeteo() {
+    const el = document.getElementById('meteo-content');
+    el.innerHTML = '<p class="loading-text">CHARGEMENT...</p>';
+    try {
+      const res = await fetch(`https://api.openweathermap.org/data/2.5/forecast?q=${CITY}&appid=${OWM_KEY}&units=metric&lang=fr&cnt=8`);
+      const data = await res.json();
+      const today = data.list.filter(item => {
+        const d = new Date(item.dt * 1000);
+        return d.toDateString() === new Date().toDateString();
+      });
+      if (!today.length) { el.innerHTML = '<p class="loading-text">AUCUNE DONNÉE</p>'; return; }
+      const temps = today.map(i => i.main.temp);
+      const tMin = Math.round(Math.min(...temps));
+      const tMax = Math.round(Math.max(...temps));
+      const ressenti = Math.round(today[0].main.feels_like);
+      const desc = today[0].weather[0].description.toUpperCase();
+      const pluie = today.reduce((a, i) => a + (i.rain ? i.rain['3h'] || 0 : 0), 0).toFixed(1);
+      const vent = Math.round(today[0].wind.speed * 3.6);
+      const humid = today[0].main.humidity;
+
+      el.innerHTML = `
+        <div class="weather-grid">
+          <div class="weather-card full">
+            <div class="card-label">CONDITIONS</div>
+            <div class="card-value" style="font-size:32px">${desc}</div>
+          </div>
+          <div class="weather-card">
+            <div class="card-label">TEMPÉRATURE</div>
+            <div class="card-value big">${tMax}°</div>
+            <div class="card-sub">MIN ${tMin}° · RESSENTI ${ressenti}°</div>
+          </div>
+          <div class="weather-card">
+            <div class="card-label">PRÉCIPITATIONS</div>
+            <div class="card-value big">${pluie}</div>
+            <div class="card-sub">MM AUJOURD'HUI</div>
+          </div>
+          <div class="weather-card">
+            <div class="card-label">VENT</div>
+            <div class="card-value">${vent}</div>
+            <div class="card-sub">KM/H</div>
+          </div>
+          <div class="weather-card">
+            <div class="card-label">HUMIDITÉ</div>
+            <div class="card-value">${humid}%</div>
+            <div class="card-sub">RELATIF</div>
+          </div>
+        </div>`;
+    } catch(e) {
+      el.innerHTML = '<p class="loading-text">ERREUR DE CHARGEMENT</p>';
+    }
+  }
+
+  // ── TENUE ──
+  async function loadTenue() {
+    const el = document.getElementById('tenue-content');
+    el.innerHTML = '<p class="loading-text">ANALYSE EN COURS...</p>';
+    try {
+      const res = await fetch(`https://api.openweathermap.org/data/2.5/forecast?q=${CITY}&appid=${OWM_KEY}&units=metric&lang=fr&cnt=8`);
+      const data = await res.json();
+      const today = data.list.filter(item => new Date(item.dt * 1000).toDateString() === new Date().toDateString());
+      if (!today.length) { el.innerHTML = '<p class="loading-text">AUCUNE DONNÉE</p>'; return; }
+
+      const ressenti = Math.min(...today.map(i => i.main.feels_like));
+      const pluie = today.reduce((a, i) => a + (i.rain ? i.rain['3h'] || 0 : 0), 0);
+      const vent = Math.max(...today.map(i => i.wind.speed * 3.6));
+
+      const items = [];
+
+      if (ressenti < 2) {
+        items.push({ icon: '🧥', text: 'MANTEAU D\'HIVER', note: 'Indispensable' });
+        items.push({ icon: '🧣', text: 'ÉCHARPE + BONNET', note: 'Protège du froid' });
+        items.push({ icon: '🧤', text: 'GANTS', note: 'Températures négatives' });
+        items.push({ icon: '👕', text: 'PULL ÉPAIS', note: 'Couche de base' });
+      } else if (ressenti < 8) {
+        items.push({ icon: '🧥', text: 'MANTEAU', note: 'Nécessaire' });
+        items.push({ icon: '🧣', text: 'ÉCHARPE', note: 'Recommandée' });
+        items.push({ icon: '👕', text: 'PULL / SWEAT', note: 'Couche intermédiaire' });
+      } else if (ressenti < 15) {
+        items.push({ icon: '🫱', text: 'VESTE LÉGÈRE', note: 'Ou hoodie' });
+        items.push({ icon: '👕', text: 'T-SHIRT MANCHES LONGUES', note: 'Couche de base' });
+      } else {
+        items.push({ icon: '👕', text: 'T-SHIRT', note: 'Température agréable' });
+      }
+
+      if (pluie > 0.5) items.push({ icon: '☂️', text: 'PARAPLUIE', note: pluie > 2 ? 'Forte pluie prévue' : 'Pluie possible' });
+      if (vent > 40) items.push({ icon: '💨', text: 'COUPE-VENT', note: 'Vent fort aujourd\'hui' });
+
+      el.innerHTML = `<div class="outfit-container">${items.map(i => `
+        <div class="outfit-item">
+          <div class="outfit-icon">${i.icon}</div>
+          <div>
+            <div class="outfit-text">${i.text}</div>
+            <div class="outfit-note">${i.note}</div>
+          </div>
+        </div>`).join('')}</div>`;
+    } catch(e) {
+      el.innerHTML = '<p class="loading-text">ERREUR DE CHARGEMENT</p>';
+    }
+  }
+
+  // ── RÉGLAGES UI ──
+  function loadSettingsUI() {
+    document.querySelectorAll('.day-btn').forEach(btn => {
+      const d = parseInt(btn.dataset.day);
+      btn.classList.toggle('selected', settings.days.includes(d));
+    });
+    document.getElementById('notif-time').value = settings.notifTime;
+    updateNotifUI();
+  }
+
+  document.querySelectorAll('.day-btn').forEach(btn => {
+    btn.addEventListener('click', () => btn.classList.toggle('selected'));
+  });
+
+  function saveSettings() {
+    const days = [...document.querySelectorAll('.day-btn.selected')].map(b => parseInt(b.dataset.day));
+    const notifTime = document.getElementById('notif-time').value;
+    settings.days = days;
+    settings.notifTime = notifTime;
+    localStorage.setItem('meteo-settings', JSON.stringify(settings));
+    scheduleNotifications();
+    showPage('home');
+  }
+
+  // ── NOTIFICATIONS ──
+  async function toggleNotifications() {
+    if (!('Notification' in window)) {
+      document.getElementById('ios-instructions').classList.add('show');
+      return;
+    }
+    if (Notification.permission === 'granted') {
+      settings.notifEnabled = !settings.notifEnabled;
+    } else {
+      const perm = await Notification.requestPermission();
+      if (perm === 'granted') {
+        settings.notifEnabled = true;
+      } else {
+        document.getElementById('ios-instructions').classList.add('show');
+        return;
+      }
+    }
+    localStorage.setItem('meteo-settings', JSON.stringify(settings));
+    updateNotifUI();
+    if (settings.notifEnabled) scheduleNotifications();
+  }
+
+  function updateNotifUI() {
+    const dot = document.getElementById('notif-dot');
+    const label = document.getElementById('notif-label');
+    const btn = document.getElementById('notif-toggle-btn');
+    if (settings.notifEnabled && Notification.permission === 'granted') {
+      dot.classList.add('active');
+      label.textContent = 'NOTIFICATIONS ACTIVES — ' + settings.notifTime;
+      btn.textContent = 'DÉSACTIVER LES NOTIFICATIONS';
+    } else {
+      dot.classList.remove('active');
+      label.textContent = 'NOTIFICATIONS DÉSACTIVÉES';
+      btn.textContent = 'ACTIVER LES NOTIFICATIONS';
+    }
+  }
+
+  function scheduleNotifications() {
+    if (!settings.notifEnabled || Notification.permission !== 'granted') return;
+    const [h, m] = settings.notifTime.split(':').map(Number);
+    const now = new Date();
+    const next = new Date();
+    next.setHours(h, m, 0, 0);
+    if (next <= now) next.setDate(next.getDate() + 1);
+    const ms = next - now;
+    setTimeout(async () => {
+      const day = new Date().getDay();
+      if (settings.days.includes(day)) {
+        try {
+          const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${CITY}&appid=${OWM_KEY}&units=metric&lang=fr`);
+          const data = await res.json();
+          const temp = Math.round(data.main.temp);
+          const desc = data.weather[0].description;
+          new Notification('🌤️ Météo du jour', {
+            body: `${temp}°C · ${desc}\nOuvre l'app pour voir ta tenue !`,
+            icon: '/icon.png'
+          });
+        } catch(e) {
+          new Notification('🌤️ Météo du jour', { body: 'Ouvre l\'app pour voir la météo !' });
+        }
+      }
+      scheduleNotifications();
+    }, ms);
+  }
+
+  // ── INIT ──
+  updateNotifUI();
+  if (settings.notifEnabled) scheduleNotifications();
+</script>
+</body>
+</html>
